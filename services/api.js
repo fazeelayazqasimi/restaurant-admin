@@ -1,8 +1,7 @@
 import axios from 'axios'
 
-const API_URL = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:5000/api'                          // Local
-  : 'https://restaurant-server-phi-two.vercel.app/api'  // Live
+const API_URL = 'https://restaurant-server-snowy.vercel.app/api' // Live
+
 
 const api = axios.create({
   baseURL: API_URL,
