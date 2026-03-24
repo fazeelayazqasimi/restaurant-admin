@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 const navItems = [
   {
@@ -46,7 +47,25 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const router   = useRouter()
+  const router = useRouter()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  useEffect(() => {
+    // Close mobile menu when route changes
+    setIsMobileMenuOpen(false)
+  }, [pathname])
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token')
@@ -54,10 +73,44 @@ export default function Sidebar() {
     router.push('/login')
   }
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen)
+  }
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false)
+  }
+
   return (
     <>
       <style>{sidebarStyles}</style>
-      <aside className="sidebar">
+      
+      {/* Mobile Menu Button */}
+      <button className="mobile-menu-btn" onClick={toggleMobileMenu}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      {/* Overlay for mobile */}
+      {isMobileMenuOpen && isMobile && (
+        <div className="mobile-overlay" onClick={closeMobileMenu} />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${isMobileMenuOpen && isMobile ? 'sidebar-mobile-open' : ''} ${isMobile ? 'sidebar-mobile' : ''}`}>
+        
+        {/* Mobile Close Button */}
+        {isMobile && (
+          <button className="mobile-close-btn" onClick={closeMobileMenu}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        )}
 
         {/* Brand */}
         <div className="sidebar-brand">
@@ -115,6 +168,66 @@ export default function Sidebar() {
 const sidebarStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap');
 
+  /* Mobile Menu Button */
+  .mobile-menu-btn {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    background: #0d0d13;
+    border: 1px solid #161824;
+    border-radius: 8px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #f1f5f9;
+    transition: background 0.15s;
+  }
+  
+  .mobile-menu-btn:hover {
+    background: #161824;
+  }
+  
+  /* Mobile Overlay */
+  .mobile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    display: none;
+  }
+  
+  /* Mobile Close Button */
+  .mobile-close-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    background: #161824;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: all 0.15s;
+    z-index: 1000;
+  }
+  
+  .mobile-close-btn:hover {
+    background: #1e293b;
+    color: #f1f5f9;
+  }
+
+  /* Sidebar Base */
   .sidebar {
     width: 240px;
     min-height: 100vh;
@@ -124,6 +237,7 @@ const sidebarStyles = `
     flex-direction: column;
     flex-shrink: 0;
     font-family: 'DM Sans', sans-serif;
+    transition: transform 0.3s ease-in-out;
   }
 
   /* Brand */
@@ -254,5 +368,111 @@ const sidebarStyles = `
   .sidebar-logout:hover {
     background: rgba(244, 63, 94, 0.08);
     color: #f43f5e;
+  }
+
+  /* Responsive Styles */
+  @media (max-width: 768px) {
+    .mobile-menu-btn {
+      display: flex;
+    }
+    
+    .mobile-overlay {
+      display: block;
+    }
+    
+    .sidebar-mobile {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 999;
+      transform: translateX(-100%);
+    }
+    
+    .sidebar-mobile-open {
+      transform: translateX(0);
+    }
+    
+    .mobile-close-btn {
+      display: flex;
+    }
+    
+    .sidebar-brand {
+      padding: 20px 18px;
+    }
+    
+    .sidebar-nav {
+      padding: 16px 12px;
+    }
+    
+    .sidebar-link {
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+    
+    .sidebar-link-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  /* Tablet Styles */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .sidebar {
+      width: 220px;
+    }
+    
+    .sidebar-brand {
+      padding: 24px 18px;
+    }
+    
+    .sidebar-brand-mark {
+      width: 32px;
+      height: 32px;
+    }
+    
+    .sidebar-brand-mark svg {
+      width: 16px;
+      height: 16px;
+    }
+    
+    .sidebar-brand-name {
+      font-size: 14px;
+    }
+    
+    .sidebar-brand-sub {
+      font-size: 10px;
+    }
+    
+    .sidebar-link {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+  }
+
+  /* Small Mobile */
+  @media (max-width: 480px) {
+    .sidebar-mobile {
+      width: 85%;
+      max-width: 280px;
+    }
+    
+    .mobile-menu-btn {
+      width: 36px;
+      height: 36px;
+      top: 12px;
+      left: 12px;
+    }
+    
+    .sidebar-brand {
+      padding: 16px 14px;
+    }
+    
+    .sidebar-nav {
+      padding: 12px 10px;
+    }
+    
+    .sidebar-footer {
+      padding: 0 10px 16px;
+    }
   }
 `
