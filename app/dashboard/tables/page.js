@@ -14,7 +14,6 @@ export default function TablesPage() {
   const [form, setForm] = useState({
     tableNumber: '',
     capacity: '',
-    restaurantId: ''
   })
 
   useEffect(() => {
@@ -43,8 +42,9 @@ export default function TablesPage() {
 
   const fetchTables = async () => {
     try {
-      const res = await api.get(`/restaurants/${selectedRestaurant}/tables`)
-      setTables(res.data.tables)
+      // FIXED: Correct endpoint
+      const res = await api.get(`/tables/restaurant/${selectedRestaurant}`)
+      setTables(res.data.tables || [])
     } catch (err) {
       console.error(err)
     }
@@ -54,12 +54,18 @@ export default function TablesPage() {
     e.preventDefault()
     setError(''); setSuccess(''); setFormLoading(true)
     try {
-      await api.post(`/restaurants/${selectedRestaurant}/tables`, form)
+      // FIXED: Correct POST endpoint with restaurantId in body
+      await api.post(`/tables`, {
+        restaurantId: parseInt(selectedRestaurant),
+        tableNumber: form.tableNumber,
+        capacity: parseInt(form.capacity)
+      })
       setSuccess('Table added successfully.')
-      setForm({ tableNumber: '', capacity: '', restaurantId: selectedRestaurant })
+      setForm({ tableNumber: '', capacity: '' })
       setShowForm(false)
       fetchTables()
     } catch (err) {
+      console.error('Error:', err.response?.data || err)
       setError(err.response?.data?.message || 'Failed to add table.')
     } finally {
       setFormLoading(false)
@@ -68,9 +74,9 @@ export default function TablesPage() {
 
   const handleStatusUpdate = async (tableId, status) => {
     try {
-      await api.put(`/tables/${tableId}/status`, { status })
+      await api.put(`/tables/${tableId}`, { isAvailable: status === 'available' })
       fetchTables()
-      setSuccess(`Table status updated to ${status}`)
+      setSuccess(`Table status updated`)
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       console.error(err)
@@ -92,13 +98,9 @@ export default function TablesPage() {
 
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }))
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'available': return 'status-available'
-      case 'reserved': return 'status-reserved'
-      case 'occupied': return 'status-occupied'
-      default: return ''
-    }
+  const getStatusColor = (status, isAvailable) => {
+    const actualStatus = isAvailable ? 'available' : 'reserved'
+    return actualStatus
   }
 
   if (loading) {
@@ -127,15 +129,10 @@ export default function TablesPage() {
             className={`btn-primary ${showForm ? 'btn-cancel' : ''}`}
             onClick={() => { setShowForm(!showForm); setError(''); setSuccess('') }}
           >
-            {showForm ? (
-              <>Cancel</>
-            ) : (
-              <>+ Add Table</>
-            )}
+            {showForm ? 'Cancel' : '+ Add Table'}
           </button>
         </header>
 
-        {/* Restaurant Selector */}
         <div className="restaurant-selector">
           <label className="selector-label">Select Restaurant:</label>
           <select
@@ -153,7 +150,6 @@ export default function TablesPage() {
           <div className="flash flash-success">{success}</div>
         )}
 
-        {/* Add Table Form */}
         {showForm && (
           <div className="form-card">
             <h2 className="form-title">Add New Table</h2>
@@ -192,7 +188,6 @@ export default function TablesPage() {
           </div>
         )}
 
-        {/* Tables Grid */}
         <div className="tables-grid">
           {tables.length === 0 ? (
             <div className="empty-state-large">
@@ -205,7 +200,7 @@ export default function TablesPage() {
             </div>
           ) : (
             tables.map(table => (
-              <div key={table.id} className={`table-card-item ${getStatusColor(table.status)}`}>
+              <div key={table.id} className={`table-card-item ${table.isAvailable ? 'status-available' : 'status-reserved'}`}>
                 <div className="table-header">
                   <h3 className="table-number">{table.tableNumber}</h3>
                   <button className="delete-btn" onClick={() => handleDelete(table.id)}>×</button>
@@ -220,8 +215,8 @@ export default function TablesPage() {
                   <span>{table.capacity} seats</span>
                 </div>
                 <div className="table-status">
-                  <span className={`status-badge ${getStatusColor(table.status)}`}>
-                    {table.status || 'available'}
+                  <span className={`status-badge ${table.isAvailable ? 'status-available' : 'status-reserved'}`}>
+                    {table.isAvailable ? 'available' : 'reserved'}
                   </span>
                 </div>
                 <div className="table-actions">
@@ -236,12 +231,6 @@ export default function TablesPage() {
                     onClick={() => handleStatusUpdate(table.id, 'reserved')}
                   >
                     Reserved
-                  </button>
-                  <button
-                    className="action-btn occupied-btn"
-                    onClick={() => handleStatusUpdate(table.id, 'occupied')}
-                  >
-                    Occupied
                   </button>
                 </div>
               </div>
@@ -421,7 +410,6 @@ const pageStyles = `
   }
   .table-card-item.status-available { border-left: 3px solid #10b981; }
   .table-card-item.status-reserved { border-left: 3px solid #f59e0b; }
-  .table-card-item.status-occupied { border-left: 3px solid #f43f5e; }
 
   .table-header {
     display: flex;
@@ -468,7 +456,6 @@ const pageStyles = `
   }
   .status-available .status-badge { background: rgba(16,185,129,0.1); color: #10b981; }
   .status-reserved .status-badge { background: rgba(245,158,11,0.1); color: #f59e0b; }
-  .status-occupied .status-badge { background: rgba(244,63,94,0.1); color: #f43f5e; }
 
   .table-actions {
     display: flex;
@@ -490,10 +477,6 @@ const pageStyles = `
   .reserved-btn {
     background: rgba(245,158,11,0.1);
     color: #f59e0b;
-  }
-  .occupied-btn {
-    background: rgba(244,63,94,0.1);
-    color: #f43f5e;
   }
 
   .empty-state-large {
