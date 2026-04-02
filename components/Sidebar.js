@@ -8,7 +8,7 @@ const navItems = [
     href: '/dashboard',
     label: 'Dashboard',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
         <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
       </svg>
@@ -18,7 +18,7 @@ const navItems = [
     href: '/dashboard/restaurants',
     label: 'Restaurants',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
         <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
       </svg>
@@ -28,9 +28,21 @@ const navItems = [
     href: '/dashboard/users',
     label: 'Users',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
         <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/owners',
+    label: 'Restaurant Owners',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
     ),
   },
@@ -38,8 +50,18 @@ const navItems = [
     href: '/dashboard/reservations',
     label: 'Reservations',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/tables',
+    label: 'Table Management',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
       </svg>
     ),
   },
@@ -63,7 +85,6 @@ export default function Sidebar() {
   }, [])
 
   useEffect(() => {
-    // Close mobile menu when route changes
     setIsMobileMenuOpen(false)
   }, [pathname])
 
@@ -85,7 +106,6 @@ export default function Sidebar() {
     <>
       <style>{sidebarStyles}</style>
       
-      {/* Mobile Menu Button */}
       <button className="mobile-menu-btn" onClick={toggleMobileMenu}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="3" y1="12" x2="21" y2="12"/>
@@ -94,15 +114,12 @@ export default function Sidebar() {
         </svg>
       </button>
 
-      {/* Overlay for mobile */}
       {isMobileMenuOpen && isMobile && (
         <div className="mobile-overlay" onClick={closeMobileMenu} />
       )}
 
-      {/* Sidebar */}
       <aside className={`sidebar ${isMobileMenuOpen && isMobile ? 'sidebar-mobile-open' : ''} ${isMobile ? 'sidebar-mobile' : ''}`}>
         
-        {/* Mobile Close Button */}
         {isMobile && (
           <button className="mobile-close-btn" onClick={closeMobileMenu}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -112,10 +129,9 @@ export default function Sidebar() {
           </button>
         )}
 
-        {/* Brand */}
         <div className="sidebar-brand">
           <div className="sidebar-brand-mark">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
               <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
             </svg>
@@ -126,7 +142,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="sidebar-nav">
           <p className="sidebar-nav-label">Navigation</p>
           {navItems.map((item) => {
@@ -145,12 +160,11 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer */}
         <div className="sidebar-footer">
           <div className="sidebar-divider" />
           <button className="sidebar-logout" onClick={handleLogout}>
             <span className="sidebar-link-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
                 <line x1="21" y1="12" x2="9" y2="12"/>
@@ -168,7 +182,6 @@ export default function Sidebar() {
 const sidebarStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap');
 
-  /* Mobile Menu Button */
   .mobile-menu-btn {
     position: fixed;
     top: 16px;
@@ -184,14 +197,9 @@ const sidebarStyles = `
     justify-content: center;
     cursor: pointer;
     color: #f1f5f9;
-    transition: background 0.15s;
   }
+  .mobile-menu-btn:hover { background: #161824; }
   
-  .mobile-menu-btn:hover {
-    background: #161824;
-  }
-  
-  /* Mobile Overlay */
   .mobile-overlay {
     position: fixed;
     top: 0;
@@ -203,7 +211,6 @@ const sidebarStyles = `
     display: none;
   }
   
-  /* Mobile Close Button */
   .mobile-close-btn {
     position: absolute;
     top: 16px;
@@ -218,16 +225,13 @@ const sidebarStyles = `
     justify-content: center;
     cursor: pointer;
     color: #94a3b8;
-    transition: all 0.15s;
     z-index: 1000;
   }
-  
   .mobile-close-btn:hover {
     background: #1e293b;
     color: #f1f5f9;
   }
 
-  /* Sidebar Base */
   .sidebar {
     width: 240px;
     min-height: 100vh;
@@ -240,7 +244,6 @@ const sidebarStyles = `
     transition: transform 0.3s ease-in-out;
   }
 
-  /* Brand */
   .sidebar-brand {
     display: flex;
     align-items: center;
@@ -257,7 +260,6 @@ const sidebarStyles = `
     align-items: center;
     justify-content: center;
     color: #fff;
-    flex-shrink: 0;
   }
   .sidebar-brand-name {
     font-family: 'Syne', sans-serif;
@@ -265,17 +267,14 @@ const sidebarStyles = `
     font-weight: 700;
     color: #f1f5f9;
     margin: 0 0 2px;
-    letter-spacing: -0.01em;
   }
   .sidebar-brand-sub {
     font-size: 11px;
     color: #334155;
     margin: 0;
-    letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 
-  /* Nav */
   .sidebar-nav {
     flex: 1;
     padding: 20px 14px;
@@ -303,7 +302,6 @@ const sidebarStyles = `
     font-weight: 500;
     color: #3d4f6b;
     text-decoration: none;
-    position: relative;
     transition: background 0.15s, color 0.15s;
   }
   .sidebar-link:hover {
@@ -314,32 +312,11 @@ const sidebarStyles = `
     background: rgba(244, 63, 94, 0.1);
     color: #f43f5e;
   }
-  .sidebar-link-active:hover {
-    background: rgba(244, 63, 94, 0.14);
-    color: #f43f5e;
-  }
 
-  .sidebar-link-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 18px;
-  }
+  .sidebar-link-icon { display: flex; align-items: center; width: 18px; }
+  .sidebar-link-label { flex: 1; }
+  .sidebar-link-dot { width: 5px; height: 5px; border-radius: 50%; background: #f43f5e; }
 
-  .sidebar-link-label {
-    flex: 1;
-  }
-
-  .sidebar-link-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #f43f5e;
-    flex-shrink: 0;
-  }
-
-  /* Footer */
   .sidebar-footer {
     padding: 0 14px 20px;
   }
@@ -362,24 +339,15 @@ const sidebarStyles = `
     border: none;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
-    transition: background 0.15s, color 0.15s;
-    text-align: left;
   }
   .sidebar-logout:hover {
     background: rgba(244, 63, 94, 0.08);
     color: #f43f5e;
   }
 
-  /* Responsive Styles */
   @media (max-width: 768px) {
-    .mobile-menu-btn {
-      display: flex;
-    }
-    
-    .mobile-overlay {
-      display: block;
-    }
-    
+    .mobile-menu-btn { display: flex; }
+    .mobile-overlay { display: block; }
     .sidebar-mobile {
       position: fixed;
       top: 0;
@@ -387,92 +355,16 @@ const sidebarStyles = `
       z-index: 999;
       transform: translateX(-100%);
     }
-    
-    .sidebar-mobile-open {
-      transform: translateX(0);
-    }
-    
-    .mobile-close-btn {
-      display: flex;
-    }
-    
-    .sidebar-brand {
-      padding: 20px 18px;
-    }
-    
-    .sidebar-nav {
-      padding: 16px 12px;
-    }
-    
-    .sidebar-link {
-      padding: 12px 14px;
-      font-size: 14px;
-    }
-    
-    .sidebar-link-icon svg {
-      width: 18px;
-      height: 18px;
-    }
+    .sidebar-mobile-open { transform: translateX(0); }
+    .mobile-close-btn { display: flex; }
+    .sidebar-brand { padding: 20px 18px; }
+    .sidebar-nav { padding: 16px 12px; }
   }
 
-  /* Tablet Styles */
   @media (min-width: 769px) and (max-width: 1024px) {
-    .sidebar {
-      width: 220px;
-    }
-    
-    .sidebar-brand {
-      padding: 24px 18px;
-    }
-    
-    .sidebar-brand-mark {
-      width: 32px;
-      height: 32px;
-    }
-    
-    .sidebar-brand-mark svg {
-      width: 16px;
-      height: 16px;
-    }
-    
-    .sidebar-brand-name {
-      font-size: 14px;
-    }
-    
-    .sidebar-brand-sub {
-      font-size: 10px;
-    }
-    
-    .sidebar-link {
-      padding: 8px 10px;
-      font-size: 12px;
-    }
-  }
-
-  /* Small Mobile */
-  @media (max-width: 480px) {
-    .sidebar-mobile {
-      width: 85%;
-      max-width: 280px;
-    }
-    
-    .mobile-menu-btn {
-      width: 36px;
-      height: 36px;
-      top: 12px;
-      left: 12px;
-    }
-    
-    .sidebar-brand {
-      padding: 16px 14px;
-    }
-    
-    .sidebar-nav {
-      padding: 12px 10px;
-    }
-    
-    .sidebar-footer {
-      padding: 0 10px 16px;
-    }
+    .sidebar { width: 220px; }
+    .sidebar-brand { padding: 24px 18px; }
+    .sidebar-brand-mark { width: 32px; height: 32px; }
+    .sidebar-brand-name { font-size: 14px; }
   }
 `
