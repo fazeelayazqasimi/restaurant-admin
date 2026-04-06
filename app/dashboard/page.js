@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import api from '../../services/api'
 
 export default function DashboardPage() {
@@ -7,274 +8,343 @@ export default function DashboardPage() {
     totalUsers: 0,
     totalRestaurants: 0,
     totalReservations: 0,
-    pendingReservations: 0,
-    confirmedReservations: 0,
-    cancelledReservations: 0,
-    completedReservations: 0,
-    noShowReservations: 0,
     pendingRestaurants: 0,
+    pendingReservations: 0,
   })
   const [recentReservations, setRecentReservations] = useState([])
-  const [todayReservations, setTodayReservations] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
+  useEffect(() => { fetchStats() }, [])
 
   const fetchStats = async () => {
     try {
+      // FIX: correct API routes
       const [usersRes, restaurantsRes, reservationsRes] = await Promise.all([
         api.get('/admin/users'),
         api.get('/admin/restaurants'),
-        api.get('/reservations/all'),
+        api.get('/admin/reservations'),  // FIX: was /reservations/all — wrong route
       ])
-      
-      const users = usersRes.data?.users || []
-      const restaurants = restaurantsRes.data?.restaurants || []
-      
-      // Fix reservations data extraction
-      let reservations = []
-      if (reservationsRes.data?.reservations) {
-        reservations = reservationsRes.data.reservations
-      } else if (Array.isArray(reservationsRes.data)) {
-        reservations = reservationsRes.data
-      } else {
-        reservations = []
-      }
-      
-      // Calculate stats
-      const pending = reservations.filter(r => r.status === 'pending').length
-      const confirmed = reservations.filter(r => r.status === 'confirmed').length
-      const cancelled = reservations.filter(r => r.status === 'cancelled').length
-      const completed = reservations.filter(r => r.status === 'completed').length
-      const noShow = reservations.filter(r => r.status === 'no_show').length
-      
-      // Today's reservations
-      const today = new Date().toISOString().split('T')[0]
-      const todayList = reservations.filter(r => r.date === today)
-      
-      // Recent reservations (last 10, newest first)
-      const sortedReservations = [...reservations].sort((a, b) => {
-        if (a.date > b.date) return -1
-        if (a.date < b.date) return 1
-        return 0
-      })
-      const recent = sortedReservations.slice(0, 10)
-      
+
+      const users         = usersRes.data.users         || []
+      const restaurants   = restaurantsRes.data.restaurants || []
+      const reservations  = reservationsRes.data.reservations || []
+
+      // FIX: filter only customers (role === 'user')
+      const customers = users.filter(u => u.role === 'user')
+
       setStats({
-        totalUsers: users.length,
-        totalRestaurants: restaurants.length,
-        totalReservations: reservations.length,
-        pendingReservations: pending,
-        confirmedReservations: confirmed,
-        cancelledReservations: cancelled,
-        completedReservations: completed,
-        noShowReservations: noShow,
-        pendingRestaurants: restaurants.filter(r => !r.isApproved).length,
+        totalUsers:          customers.length,
+        totalRestaurants:    restaurants.length,
+        totalReservations:   reservations.length,
+        pendingRestaurants:  restaurants.filter(r => !r.isApproved).length,
+        pendingReservations: reservations.filter(r => r.status === 'pending').length,
       })
-      
-      setRecentReservations(recent)
-      setTodayReservations(todayList)
-      
+      setRecentReservations(reservations.slice(0, 8))
     } catch (err) {
-      console.error('Stats error:', err)
+      console.error('Dashboard stats error:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const getStatusStyle = (status) => {
-    switch(status) {
-      case 'pending': return { bg: 'rgba(245,158,11,0.1)', color: '#f59e0b', label: 'Pending' }
-      case 'confirmed': return { bg: 'rgba(16,185,129,0.1)', color: '#10b981', label: 'Confirmed' }
-      case 'cancelled': return { bg: 'rgba(244,63,94,0.1)', color: '#f43f5e', label: 'Cancelled' }
-      case 'completed': return { bg: 'rgba(59,130,246,0.1)', color: '#3b82f6', label: 'Completed' }
-      case 'no_show': return { bg: 'rgba(100,116,139,0.1)', color: '#64748b', label: 'No Show' }
-      default: return { bg: 'rgba(100,116,139,0.1)', color: '#64748b', label: status || 'Unknown' }
-    }
+  // FIX: status map matches schema enums exactly
+  const statusMap = {
+    pending:   { label: 'Pending',   cls: 'sb-pending'   },
+    confirmed: { label: 'Confirmed', cls: 'sb-confirmed' },
+    cancelled: { label: 'Cancelled', cls: 'sb-cancelled' },  // FIX: was 'rejected'
+    completed: { label: 'Completed', cls: 'sb-completed' },
+    no_show:   { label: 'No Show',   cls: 'sb-noshow'    },
   }
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-        <div>Loading dashboard...</div>
+  if (loading) return (
+    <>
+      <style>{styles}</style>
+      <div className="d-loading">
+        <div className="d-spinner" />
+        <span>Loading dashboard...</span>
       </div>
-    )
-  }
+    </>
+  )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', padding: '40px', color: '#e2e8f0' }}>
-      
-      {/* Header */}
-      <div style={{ marginBottom: '40px' }}>
-        <p style={{ color: '#f43f5e', fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Admin Console</p>
-        <h1 style={{ fontSize: '32px', fontWeight: '800', margin: '8px 0 0' }}>Dashboard Overview</h1>
-        <p style={{ color: '#475569', marginTop: '8px' }}>Complete system summary and insights</p>
-      </div>
+    <>
+      <style>{styles}</style>
+      <div className="d-root">
 
-      {/* Stats Grid - 4 cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-        <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '16px', padding: '24px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>Total Users</div>
-          <div style={{ fontSize: '40px', fontWeight: '800', marginTop: '8px' }}>{stats.totalUsers}</div>
-          <div style={{ fontSize: '11px', color: '#475569', marginTop: '4px' }}>Active accounts</div>
-        </div>
-        <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '16px', padding: '24px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>Restaurants</div>
-          <div style={{ fontSize: '40px', fontWeight: '800', marginTop: '8px' }}>{stats.totalRestaurants}</div>
-          <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px' }}>{stats.pendingRestaurants} pending approval</div>
-        </div>
-        <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '16px', padding: '24px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>Total Reservations</div>
-          <div style={{ fontSize: '40px', fontWeight: '800', marginTop: '8px' }}>{stats.totalReservations}</div>
-          <div style={{ fontSize: '11px', color: '#475569', marginTop: '4px' }}>All time bookings</div>
-        </div>
-        <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '16px', padding: '24px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>Pending Approvals</div>
-          <div style={{ fontSize: '40px', fontWeight: '800', marginTop: '8px', color: '#f59e0b' }}>{stats.pendingRestaurants}</div>
-          <div style={{ fontSize: '11px', color: '#475569', marginTop: '4px' }}>Restaurants waiting</div>
-        </div>
-      </div>
-
-      {/* Reservation Status Breakdown - 5 cards */}
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px' }}>Reservation Status Breakdown</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
-          <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#f59e0b' }}>Pending</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#f59e0b' }}>{stats.pendingReservations}</div>
-          </div>
-          <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#10b981' }}>Confirmed</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#10b981' }}>{stats.confirmedReservations}</div>
-          </div>
-          <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#3b82f6' }}>Completed</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#3b82f6' }}>{stats.completedReservations}</div>
-          </div>
-          <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#f43f5e' }}>Cancelled</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#f43f5e' }}>{stats.cancelledReservations}</div>
-          </div>
-          <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>No Show</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#64748b' }}>{stats.noShowReservations}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Pending Restaurants Alert */}
-      {stats.pendingRestaurants > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '14px', padding: '16px 20px', marginBottom: '28px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', animation: 'pulse 2s infinite' }} />
+        {/* Header */}
+        <header className="d-header">
           <div>
-            <p style={{ fontSize: '13px', fontWeight: '500', color: '#fbbf24', margin: '0 0 4px' }}>{stats.pendingRestaurants} restaurant{stats.pendingRestaurants > 1 ? 's' : ''} awaiting approval</p>
-            <a href="/dashboard/restaurants" style={{ fontSize: '12px', color: '#92400e', textDecoration: 'none' }}>Review now →</a>
+            <p className="d-eyebrow">Admin Console</p>
+            <h1 className="d-title">Dashboard</h1>
           </div>
-        </div>
-      )}
+          <div className="d-date">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
+        </header>
 
-      {/* Two Column Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        
-        {/* Today's Reservations */}
-        <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '20px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #1a1d2e' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>📅 Today's Reservations</h2>
-            <span style={{ fontSize: '11px', color: '#334155', background: '#0f1117', border: '1px solid #1e2030', padding: '4px 12px', borderRadius: '99px' }}>{todayReservations.length} today</span>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            {todayReservations.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: '#334155' }}>No reservations for today</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #1a1d2e' }}>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Time</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Customer</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Restaurant</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Guests</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {todayReservations.map((r) => {
-                    const style = getStatusStyle(r.status)
-                    return (
-                      <tr key={r.id} style={{ borderBottom: '1px solid #12141e' }}>
-                        <td style={{ padding: '12px 16px', fontWeight: '500' }}>{r.time}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.user?.name || 'Walk-in'}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.restaurant?.name}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.guests}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '99px', fontSize: '10px', fontWeight: '600', background: style.bg, color: style.color }}>
-                            {style.label}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+        {/* Stats */}
+        <div className="d-stats">
+          {[
+            {
+              label: 'Total Users', value: stats.totalUsers,
+              icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+              accent: '#3b82f6', bg: 'rgba(59,130,246,0.1)', bar: 72,
+            },
+            {
+              label: 'Restaurants', value: stats.totalRestaurants,
+              icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>,
+              accent: '#f43f5e', bg: 'rgba(244,63,94,0.1)', bar: 55,
+            },
+            {
+              label: 'Reservations', value: stats.totalReservations,
+              icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+              accent: '#10b981', bg: 'rgba(16,185,129,0.1)', bar: 85,
+            },
+            {
+              label: 'Pending Approvals', value: stats.pendingRestaurants,
+              icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+              accent: '#f59e0b', bg: 'rgba(245,158,11,0.1)',
+              bar: Math.min((stats.pendingRestaurants / Math.max(stats.totalRestaurants, 1)) * 100, 100),
+            },
+          ].map(s => (
+            <div className="d-stat-card" key={s.label}>
+              <div className="d-stat-top">
+                <span className="d-stat-label">{s.label}</span>
+                <span className="d-stat-icon" style={{ background: s.bg, color: s.accent }}>{s.icon}</span>
+              </div>
+              <div className="d-stat-val" style={{ color: s.accent }}>{s.value}</div>
+              <div className="d-stat-bar">
+                <div className="d-stat-bar-fill" style={{ width: `${s.bar}%`, background: s.accent }} />
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Recent Reservations */}
-        <div style={{ background: '#111118', border: '1px solid #1e2030', borderRadius: '20px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #1a1d2e' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>🕐 Recent Reservations</h2>
-            <span style={{ fontSize: '11px', color: '#334155', background: '#0f1117', border: '1px solid #1e2030', padding: '4px 12px', borderRadius: '99px' }}>{recentReservations.length} entries</span>
+        {/* Alert */}
+        {stats.pendingRestaurants > 0 && (
+          <div className="d-alert">
+            <span className="d-alert-dot" />
+            <p className="d-alert-text">
+              <strong>{stats.pendingRestaurants}</strong> restaurant{stats.pendingRestaurants > 1 ? 's' : ''} awaiting approval
+            </p>
+            <Link href="/dashboard/restaurants" className="d-alert-link">
+              Review now →
+            </Link>
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            {recentReservations.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: '#334155' }}>No reservations found</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #1a1d2e' }}>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>ID</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Customer</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Restaurant</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Date</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Time</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Guests</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: '#334155' }}>Status</th>
+        )}
+
+        {/* Recent Reservations Table */}
+        <div className="d-table-card">
+          <div className="d-table-header">
+            <h2>Recent Reservations</h2>
+            <span className="d-table-badge">{recentReservations.length} entries</span>
+          </div>
+          <div className="d-table-scroll">
+            <table className="d-table">
+              <thead>
+                <tr>
+                  <th>#ID</th>
+                  <th>Customer</th>
+                  <th>Restaurant</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Guests</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentReservations.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="d-empty">No reservations yet</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {recentReservations.map((r) => {
-                    const style = getStatusStyle(r.status)
-                    return (
-                      <tr key={r.id} style={{ borderBottom: '1px solid #12141e' }}>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>#{r.id}</td>
-                        <td style={{ padding: '12px 16px', fontWeight: '500' }}>{r.user?.name || 'Walk-in'}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.restaurant?.name || 'Unknown'}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.date}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.time}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.guests}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '99px', fontSize: '10px', fontWeight: '600', background: style.bg, color: style.color }}>
-                            {style.label}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
+                ) : recentReservations.map(r => {
+                  const s = statusMap[r.status] || { label: r.status, cls: '' }
+                  // FIX: walk-in may have null user — safe access
+                  const customerName = r.user?.name || r.customerName || 'Walk-in'
+                  const restaurantName = r.restaurant?.name || '—'
+                  return (
+                    <tr key={r.id}>
+                      <td className="td-muted">#{r.id}</td>
+                      <td className="td-bold">{customerName}</td>
+                      <td className="td-muted">{restaurantName}</td>
+                      <td className="td-muted">{r.date}</td>
+                      <td className="td-muted">{r.time}</td>
+                      <td className="td-muted">{r.guests}</td>
+                      <td><span className={`d-badge ${s.cls}`}>{s.label}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
+
       </div>
-
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
-    </div>
+    </>
   )
 }
+
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  .d-root {
+    min-height: 100vh;
+    background: #0a0a0f;
+    padding: 40px 44px;
+    font-family: 'DM Sans', sans-serif;
+    color: #e2e8f0;
+  }
+
+  .d-loading {
+    min-height: 100vh;
+    background: #0a0a0f;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; color: #64748b;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+  }
+  .d-spinner {
+    width: 36px; height: 36px;
+    border: 2px solid #1e293b;
+    border-top-color: #f43f5e;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .d-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 36px;
+  }
+  .d-eyebrow {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #f43f5e; margin: 0 0 8px;
+  }
+  .d-title {
+    font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800;
+    color: #f1f5f9; margin: 0; letter-spacing: -0.02em;
+  }
+  .d-date { font-size: 12px; color: #475569; }
+
+  /* Stats */
+  .d-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1024px) { .d-stats { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 600px)  { .d-stats { grid-template-columns: 1fr; } }
+
+  .d-stat-card {
+    background: #111118;
+    border: 1px solid #1e2030;
+    border-radius: 16px;
+    padding: 24px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .d-stat-card:hover { transform: translateY(-2px); border-color: #2a2d3e; }
+
+  .d-stat-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .d-stat-label {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #64748b;
+  }
+  .d-stat-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .d-stat-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 40px; font-weight: 800;
+    line-height: 1; margin-bottom: 16px; letter-spacing: -0.03em;
+  }
+  .d-stat-bar { height: 3px; background: #1e2030; border-radius: 99px; overflow: hidden; }
+  .d-stat-bar-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
+
+  /* Alert */
+  .d-alert {
+    display: flex; align-items: center; gap: 14px;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 12px; padding: 14px 20px;
+    margin-bottom: 24px;
+  }
+  .d-alert-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;
+    flex-shrink: 0; box-shadow: 0 0 8px #f59e0b;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .d-alert-text { font-size: 13px; color: #fbbf24; flex: 1; margin: 0; }
+  .d-alert-link {
+    font-size: 12px; color: #92400e; text-decoration: none;
+    opacity: 0.8; transition: opacity 0.15s; white-space: nowrap;
+  }
+  .d-alert-link:hover { opacity: 1; }
+
+  /* Table */
+  .d-table-card {
+    background: #111118;
+    border: 1px solid #1e2030;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .d-table-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 28px; border-bottom: 1px solid #1a1d2e;
+  }
+  .d-table-header h2 {
+    font-family: 'Syne', sans-serif; font-size: 16px;
+    font-weight: 700; color: #f1f5f9; margin: 0;
+  }
+  .d-table-badge {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #334155; background: #0f1117;
+    border: 1px solid #1e2030; padding: 4px 12px; border-radius: 99px;
+  }
+  .d-table-scroll { overflow-x: auto; }
+  .d-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .d-table thead tr { border-bottom: 1px solid #1a1d2e; }
+  .d-table th {
+    padding: 12px 20px; text-align: left;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #334155;
+  }
+  .d-table tbody tr {
+    border-bottom: 1px solid #12141e;
+    transition: background 0.15s;
+  }
+  .d-table tbody tr:last-child { border-bottom: none; }
+  .d-table tbody tr:hover { background: #13151f; }
+  .d-table td { padding: 14px 20px; }
+  .td-muted { color: #64748b; }
+  .td-bold  { color: #e2e8f0; font-weight: 500; }
+  .d-empty  { text-align: center; padding: 48px; color: #334155; font-size: 13px; }
+
+  /* Badges */
+  .d-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 99px;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .d-badge::before {
+    content: ''; width: 5px; height: 5px;
+    border-radius: 50%; background: currentColor;
+  }
+  .sb-pending   { background: rgba(245,158,11,0.1);  color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+  .sb-confirmed { background: rgba(16,185,129,0.1);  color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+  .sb-cancelled { background: rgba(244,63,94,0.1);   color: #f43f5e; border: 1px solid rgba(244,63,94,0.2);  }
+  .sb-completed { background: rgba(59,130,246,0.1);  color: #3b82f6; border: 1px solid rgba(59,130,246,0.2); }
+  .sb-noshow    { background: rgba(100,116,139,0.1); color: #64748b; border: 1px solid rgba(100,116,139,0.2);}
+
+  @media (max-width: 768px) {
+    .d-root { padding: 24px 16px; }
+    .d-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .d-date { display: none; }
+  }
+`
