@@ -8,17 +8,34 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('admin_token')
-    if (!token) {
-      router.push('/login')
-    }
+    if (!token) router.push('/login')
   }, [])
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
+    <>
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0f; }
+        .layout-root {
+          display: flex;
+          min-height: 100vh;
+          background: #0a0a0f;
+        }
+        .layout-main {
+          flex: 1;
+          overflow-x: hidden;
+          min-width: 0;
+        }
+        @media (max-width: 768px) {
+          .layout-main { padding-top: 0; }
+        }
+      `}</style>
+      <div className="layout-root">
+        <Sidebar />
+        <main className="layout-main">
+          {children}
+        </main>
+      </div>
+    </>
   )
 }
