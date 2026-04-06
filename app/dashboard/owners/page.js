@@ -3,20 +3,19 @@ import { useState, useEffect } from 'react'
 import api from '../../../services/api'
 
 export default function OwnersPage() {
-  const [owners, setOwners] = useState([])
+  const [owners, setOwners]   = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch]   = useState('')
+  const [deleting, setDeleting] = useState(null)
 
-  useEffect(() => {
-    fetchOwners()
-  }, [])
+  useEffect(() => { fetchOwners() }, [])
 
   const fetchOwners = async () => {
     try {
       const res = await api.get('/admin/users')
-      // Filter only restaurant owners
-      const restaurantOwners = res.data.users.filter(u => u.role === 'restaurant')
-      setOwners(restaurantOwners)
+      const allUsers = res.data.users || []
+      // Only restaurant owners
+      setOwners(allUsers.filter(u => u.role === 'restaurant'))
     } catch (err) {
       console.error('Fetch owners error:', err)
     } finally {
@@ -25,250 +24,190 @@ export default function OwnersPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this owner?')) return
+    if (!confirm('Delete this restaurant owner? Their restaurants may also be affected.')) return
+    setDeleting(id)
     try {
       await api.delete(`/admin/users/${id}`)
-      fetchOwners()
+      setOwners(prev => prev.filter(o => o.id !== id))
     } catch {
-      alert('Failed to delete.')
+      alert('Failed to delete owner.')
+    } finally {
+      setDeleting(null)
     }
   }
 
   const filtered = owners.filter(o =>
-    o.name.toLowerCase().includes(search.toLowerCase()) ||
-    o.email.toLowerCase().includes(search.toLowerCase())
+    o.name?.toLowerCase().includes(search.toLowerCase()) ||
+    o.email?.toLowerCase().includes(search.toLowerCase()) ||
+    o.phone?.toLowerCase().includes(search.toLowerCase())
   )
 
-  if (loading) {
-    return (
-      <>
-        <style>{pageStyles}</style>
-        <div className="page-loading">
-          <div className="page-spinner" />
-          <span>Loading restaurant owners</span>
-        </div>
-      </>
-    )
-  }
+  if (loading) return (
+    <>
+      <style>{styles}</style>
+      <div className="p-loading"><div className="p-spinner" /><span>Loading owners...</span></div>
+    </>
+  )
 
   return (
     <>
-      <style>{pageStyles}</style>
-      <div className="page-root">
-
-        <header className="page-header">
+      <style>{styles}</style>
+      <div className="p-root">
+        <header className="p-header">
           <div>
-            <p className="page-eyebrow">Management</p>
-            <h1 className="page-title">Restaurant Owners</h1>
+            <p className="p-eyebrow">Management</p>
+            <h1 className="p-title">Restaurant Owners</h1>
           </div>
-          <div className="page-meta-chip">{owners.length} total owners</div>
+          <div className="p-chip">{owners.length} owners</div>
         </header>
 
-        <div className="toolbar">
-          <div className="search-wrap">
-            <svg className="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="p-toolbar">
+          <div className="p-search">
+            <svg className="p-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input
               type="text"
-              placeholder="Search by name or email"
+              placeholder="Search by name, email or phone..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="search-input"
             />
             {search && (
-              <button className="search-clear" onClick={() => setSearch('')}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M18 6 6 18M6 6l12 12"/>
-                </svg>
+              <button className="p-search-clear" onClick={() => setSearch('')}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
             )}
           </div>
+          {search && <span className="p-result-count">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>}
         </div>
 
-        <div className="table-card">
-          <div className="table-wrap">
-            <table className="data-table">
+        <div className="p-table-card">
+          <div className="p-table-scroll">
+            <table className="p-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Name</th>
+                  <th>#ID</th>
+                  <th>Owner Name</th>
                   <th>Email</th>
                   <th>Phone</th>
+                  <th>Verified</th>
                   <th>Restaurants</th>
                   <th>Joined</th>
-                  <th>Actions</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="empty-cell">
-                      <div className="empty-state">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    <td colSpan={8}>
+                      <div className="p-empty">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+                          <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
                         </svg>
-                        <p>No restaurant owners found</p>
+                        <p>{search ? 'No owners match your search' : 'No restaurant owners registered'}</p>
                       </div>
                     </td>
                   </tr>
-                ) : (
-                  filtered.map(o => (
-                    <tr key={o.id}>
-                      <td className="cell-muted">#{o.id}</td>
-                      <td className="cell-bold">{o.name}</td>
-                      <td className="cell-muted">{o.email}</td>
-                      <td className="cell-muted">{o.phone || <span className="cell-empty">—</span>}</td>
-                      <td className="cell-muted">{o._count?.restaurants || 0}</td>
-                      <td className="cell-muted">{new Date(o.createdAt).toLocaleDateString()}</td>
-                      <td>
-                        <button className="btn-delete" onClick={() => handleDelete(o.id)}>
+                ) : filtered.map(o => (
+                  <tr key={o.id}>
+                    <td className="td-muted">#{o.id}</td>
+                    <td>
+                      <div className="p-user-cell">
+                        <div className="p-avatar p-avatar-blue">{o.name?.[0]?.toUpperCase() || '?'}</div>
+                        <span className="td-bold">{o.name}</span>
+                      </div>
+                    </td>
+                    <td className="td-muted">{o.email}</td>
+                    <td className="td-muted">{o.phone || <span className="td-nil">—</span>}</td>
+                    <td>
+                      {o.isVerified
+                        ? <span className="p-verified">✓ Verified</span>
+                        : <span className="p-unverified">✗ Unverified</span>
+                      }
+                    </td>
+                    <td className="td-muted">
+                      {o.restaurants?.length ?? 0} restaurant{(o.restaurants?.length ?? 0) !== 1 ? 's' : ''}
+                    </td>
+                    <td className="td-muted">
+                      {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+                    </td>
+                    <td>
+                      <button
+                        className="p-del-btn"
+                        onClick={() => handleDelete(o.id)}
+                        disabled={deleting === o.id}
+                      >
+                        {deleting === o.id ? <span className="p-btn-spinner" /> : (
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                           </svg>
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                        )}
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
-
       </div>
     </>
   )
 }
 
-const pageStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap');
 
-  .page-root {
-    min-height: 100vh;
-    background: #0a0a0f;
-    padding: 40px 44px;
-    font-family: 'DM Sans', sans-serif;
-    color: #e2e8f0;
-  }
+  .p-root { min-height:100vh; background:#0a0a0f; padding:40px 44px; font-family:'DM Sans',sans-serif; color:#e2e8f0; }
+  .p-loading { min-height:100vh; background:#0a0a0f; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; color:#64748b; font-family:'DM Sans',sans-serif; font-size:14px; }
+  .p-spinner { width:36px; height:36px; border:2px solid #1e293b; border-top-color:#f43f5e; border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
 
-  .page-loading {
-    min-height: 100vh;
-    background: #0a0a0f;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    color: #64748b;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-  }
-  .page-spinner {
-    width: 36px; height: 36px;
-    border: 2px solid #1e293b;
-    border-top-color: #f43f5e;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .p-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:32px; }
+  .p-eyebrow { font-size:11px; font-weight:500; letter-spacing:0.18em; text-transform:uppercase; color:#f43f5e; margin:0 0 8px; }
+  .p-title { font-family:'Syne',sans-serif; font-size:32px; font-weight:800; color:#f1f5f9; margin:0; letter-spacing:-0.02em; }
+  .p-chip { font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#334155; background:#111118; border:1px solid #1e2030; padding:6px 14px; border-radius:99px; }
 
-  .page-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    margin-bottom: 36px;
-  }
-  .page-eyebrow {
-    font-size: 11px; font-weight: 500;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    color: #f43f5e; margin: 0 0 8px;
-  }
-  .page-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 32px; font-weight: 800;
-    color: #f1f5f9; margin: 0;
-    letter-spacing: -0.02em;
-  }
-  .page-meta-chip {
-    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-    color: #334155; background: #111118;
-    border: 1px solid #1e2030; padding: 6px 14px; border-radius: 99px;
-  }
+  .p-toolbar { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+  .p-search { position:relative; display:flex; align-items:center; max-width:380px; width:100%; }
+  .p-search-icon { position:absolute; left:14px; color:#334155; pointer-events:none; }
+  .p-search input { width:100%; background:#111118; border:1px solid #1e2030; border-radius:10px; padding:10px 40px; font-size:13px; color:#e2e8f0; font-family:'DM Sans',sans-serif; outline:none; transition:border-color 0.2s; }
+  .p-search input::placeholder { color:#334155; }
+  .p-search input:focus { border-color:#f43f5e; }
+  .p-search-clear { position:absolute; right:12px; background:#1e2030; border:none; cursor:pointer; color:#64748b; padding:4px; border-radius:4px; display:flex; align-items:center; transition:color 0.15s; }
+  .p-search-clear:hover { color:#f43f5e; }
+  .p-result-count { font-size:12px; color:#475569; }
 
-  .toolbar {
-    display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
-  }
-  .search-wrap {
-    position: relative; display: flex; align-items: center;
-    max-width: 360px; width: 100%;
-  }
-  .search-icon {
-    position: absolute; left: 14px; color: #334155;
-  }
-  .search-input {
-    width: 100%;
-    background: #111118;
-    border: 1px solid #1e2030;
-    border-radius: 10px;
-    padding: 10px 40px 10px 40px;
-    font-size: 13px;
-    color: #e2e8f0;
-    font-family: 'DM Sans', sans-serif;
-    outline: none;
-  }
-  .search-input::placeholder { color: #334155; }
-  .search-input:focus { border-color: #f43f5e; }
-  .search-clear {
-    position: absolute; right: 12px;
-    background: #1e2030; border: none; cursor: pointer;
-    color: #64748b; padding: 4px; border-radius: 4px;
-  }
-  .search-clear:hover { color: #f43f5e; }
+  .p-table-card { background:#111118; border:1px solid #1e2030; border-radius:20px; overflow:hidden; }
+  .p-table-scroll { overflow-x:auto; }
+  .p-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .p-table thead tr { border-bottom:1px solid #1a1d2e; }
+  .p-table th { padding:13px 20px; text-align:left; font-size:11px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:#334155; }
+  .p-table tbody tr { border-bottom:1px solid #12141e; transition:background 0.15s; }
+  .p-table tbody tr:last-child { border-bottom:none; }
+  .p-table tbody tr:hover { background:#13151f; }
+  .p-table td { padding:13px 20px; }
+  .td-muted { color:#64748b; }
+  .td-bold { color:#e2e8f0; font-weight:500; }
+  .td-nil { color:#2d3348; }
 
-  .table-card {
-    background: #111118;
-    border: 1px solid #1e2030;
-    border-radius: 20px;
-    overflow: hidden;
-  }
-  .table-wrap { overflow-x: auto; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .data-table thead tr { border-bottom: 1px solid #1a1d2e; }
-  .data-table th {
-    padding: 14px 20px; text-align: left;
-    font-size: 11px; font-weight: 500;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    color: #334155;
-  }
-  .data-table tbody tr { border-bottom: 1px solid #12141e; transition: background 0.15s; }
-  .data-table tbody tr:hover { background: #13151f; }
-  .data-table td { padding: 14px 20px; }
+  .p-user-cell { display:flex; align-items:center; gap:10px; }
+  .p-avatar { width:32px; height:32px; border-radius:50%; background:rgba(244,63,94,0.15); color:#f43f5e; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .p-avatar-blue { background:rgba(59,130,246,0.15); color:#3b82f6; }
 
-  .cell-muted { color: #64748b; }
-  .cell-bold { color: #e2e8f0; font-weight: 500; }
-  .cell-empty { color: #2d3348; }
+  .p-verified   { font-size:11px; font-weight:600; color:#10b981; background:rgba(16,185,129,0.1); padding:3px 10px; border-radius:99px; border:1px solid rgba(16,185,129,0.2); }
+  .p-unverified { font-size:11px; font-weight:600; color:#64748b; background:rgba(100,116,139,0.1); padding:3px 10px; border-radius:99px; border:1px solid rgba(100,116,139,0.2); }
 
-  .empty-state {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 60px 24px; gap: 12px;
-    color: #334155;
-  }
-  .empty-state p { font-size: 13px; margin: 0; }
+  .p-del-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.2); color:#f43f5e; border-radius:8px; font-size:12px; font-weight:500; cursor:pointer; transition:background 0.15s; font-family:'DM Sans',sans-serif; }
+  .p-del-btn:hover:not(:disabled) { background:rgba(244,63,94,0.15); }
+  .p-del-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .p-btn-spinner { width:12px; height:12px; border:2px solid rgba(244,63,94,0.3); border-top-color:#f43f5e; border-radius:50%; animation:spin 0.7s linear infinite; }
 
-  .btn-delete {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 14px;
-    background: rgba(244,63,94,0.08);
-    border: 1px solid rgba(244,63,94,0.2);
-    color: #f43f5e;
-    border-radius: 8px; font-size: 12px; font-weight: 500;
-    cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
-  }
-  .btn-delete:hover {
-    background: rgba(244,63,94,0.15);
-  }
+  .p-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 24px; gap:12px; color:#334155; }
+  .p-empty p { font-size:13px; margin:0; }
+
+  @media (max-width:768px) { .p-root { padding:24px 16px; } .p-header { flex-direction:column; align-items:flex-start; gap:8px; } }
 `
