@@ -12,10 +12,10 @@ export default function OwnersPage() {
 
   const fetchOwners = async () => {
     try {
-      const res = await api.get('/admin/users')
-      const allUsers = res.data.users || []
+      const res = await api.get('/admin/owners')
+      const allUsers = res.data.owners || []
       // Only restaurant owners
-      setOwners(allUsers.filter(u => u.role === 'restaurant'))
+      setOwners(allUsers)
     } catch (err) {
       console.error('Fetch owners error:', err)
     } finally {
