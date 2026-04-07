@@ -6,8 +6,9 @@ export default function RestaurantsPage() {
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
-  const [filter, setFilter]           = useState('all') // all | pending | approved
+  const [filter, setFilter]           = useState('all')
   const [actionId, setActionId]       = useState(null)
+  const [showModal, setShowModal]     = useState(false)
 
   useEffect(() => { fetchRestaurants() }, [])
 
@@ -36,7 +37,8 @@ export default function RestaurantsPage() {
     setActionId(id)
     try {
       await api.put(`/admin/restaurants/${id}/reject`)
-      setRestaurants(prev => prev.map(r => r.id === id ? { ...r, isApproved: false, isRejected: true } : r))
+      // FIX: sirf isApproved: false — isRejected field schema mein nahi
+      setRestaurants(prev => prev.map(r => r.id === id ? { ...r, isApproved: false } : r))
     } catch { alert('Failed to reject.') }
     finally { setActionId(null) }
   }
@@ -57,9 +59,9 @@ export default function RestaurantsPage() {
       r.cuisine?.toLowerCase().includes(search.toLowerCase()) ||
       r.owner?.name?.toLowerCase().includes(search.toLowerCase())
     const matchFilter =
-      filter === 'all'     ? true :
-      filter === 'pending' ? !r.isApproved :
-      filter === 'approved'? r.isApproved : true
+      filter === 'all'      ? true :
+      filter === 'pending'  ? !r.isApproved :
+      filter === 'approved' ? r.isApproved : true
     return matchSearch && matchFilter
   })
 
@@ -77,12 +79,21 @@ export default function RestaurantsPage() {
     <>
       <style>{styles}</style>
       <div className="p-root">
+
         <header className="p-header">
           <div>
             <p className="p-eyebrow">Management</p>
             <h1 className="p-title">Restaurants</h1>
           </div>
-          <div className="p-chip">{restaurants.length} total</div>
+          <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+            <div className="p-chip">{restaurants.length} total</div>
+            <button className="add-btn" onClick={() => setShowModal(true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Add Restaurant
+            </button>
+          </div>
         </header>
 
         {/* Quick stats */}
@@ -189,30 +200,19 @@ export default function RestaurantsPage() {
                     </td>
                     <td>
                       <div className="r-actions">
+                        {/* FIX: Approve/Reject sirf pending pe dikhein */}
                         {!r.isApproved && (
-                          <button
-                            className="r-btn r-btn-approve"
-                            onClick={() => handleApprove(r.id)}
-                            disabled={actionId === r.id}
-                          >
+                          <button className="r-btn r-btn-approve" onClick={() => handleApprove(r.id)} disabled={actionId === r.id}>
                             {actionId === r.id ? <span className="p-btn-spinner" /> : null}
                             Approve
                           </button>
                         )}
                         {!r.isApproved && (
-                          <button
-                            className="r-btn r-btn-reject"
-                            onClick={() => handleReject(r.id)}
-                            disabled={actionId === r.id}
-                          >
+                          <button className="r-btn r-btn-reject" onClick={() => handleReject(r.id)} disabled={actionId === r.id}>
                             Reject
                           </button>
                         )}
-                        <button
-                          className="r-btn r-btn-delete"
-                          onClick={() => handleDelete(r.id)}
-                          disabled={actionId === r.id}
-                        >
+                        <button className="r-btn r-btn-delete" onClick={() => handleDelete(r.id)} disabled={actionId === r.id}>
                           Delete
                         </button>
                       </div>
@@ -224,10 +224,271 @@ export default function RestaurantsPage() {
           </div>
         </div>
       </div>
+
+      {/* Add Restaurant Modal */}
+      {showModal && (
+        <AddRestaurantModal
+          onClose={() => setShowModal(false)}
+          onSuccess={() => {
+            setShowModal(false)
+            fetchRestaurants()
+          }}
+        />
+      )}
     </>
   )
 }
 
+// ─── Add Restaurant Modal (3 Steps) ─────────────────────────────────
+function AddRestaurantModal({ onClose, onSuccess }) {
+  const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`)
+
+  const [step, setSaving_step] = useState(1) // 1=owner, 2=restaurant, 3=confirm
+  const [saving, setSaving]    = useState(false)
+  const [error, setError]      = useState('')
+
+  const [form, setForm] = useState({
+    // Owner
+    ownerName: '', email: '', phone: '', password: '',
+    // Restaurant
+    restaurantName: '', location: '',
+    openingTime: '12:00', closingTime: '23:00',
+    description: '', cuisine: '',
+  })
+
+  const set = (key, val) => setForm(p => ({ ...p, [key]: val }))
+
+  const validateStep1 = () => {
+    if (!form.ownerName || !form.email || !form.phone || !form.password)
+      return 'All fields are required.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      return 'Invalid email address.'
+    if (!/^[0-9]{10,15}$/.test(form.phone))
+      return 'Phone must be 10–15 digits only.'
+    if (form.password.length < 6)
+      return 'Password must be at least 6 characters.'
+    return null
+  }
+
+  const validateStep2 = () => {
+    if (!form.restaurantName || !form.location)
+      return 'Restaurant name and location are required.'
+    return null
+  }
+
+  const handleNext = () => {
+    const err = step === 1 ? validateStep1() : validateStep2()
+    if (err) { setError(err); return }
+    setError('')
+    setSaving_step(s => s + 1)
+  }
+
+  const handleBack = () => {
+    setError('')
+    setSaving_step(s => s - 1)
+  }
+
+  const handleSubmit = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await api.post('/auth/register', {
+        name:     form.ownerName,
+        email:    form.email,
+        phone:    form.phone,
+        password: form.password,
+        role:     'restaurant',
+        restaurant: {
+          name:        form.restaurantName,
+          location:    form.location,
+          openingTime: form.openingTime,
+          closingTime: form.closingTime,
+          description: form.description,
+          cuisine:     form.cuisine,
+        }
+      })
+      onSuccess()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed. Email may already exist.')
+      setSaving_step(1)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const stepLabels = ['Owner Info', 'Restaurant', 'Confirm']
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={onClose} />
+      <div className="modal-box">
+
+        {/* Header */}
+        <div className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Step {step} of 3</p>
+            <h2 className="modal-title">
+              {step === 1 ? 'Owner Details'
+               : step === 2 ? 'Restaurant Details'
+               : 'Confirm & Register'}
+            </h2>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Step indicators */}
+        <div className="modal-steps">
+          {stepLabels.map((label, i) => (
+            <>
+              <div key={label} className={`modal-step ${step > i ? 'modal-step-done' : step === i+1 ? 'modal-step-active' : ''}`}>
+                <span>{step > i+1 ? '✓' : i+1}</span>
+                {label}
+              </div>
+              {i < stepLabels.length - 1 && <div key={`line-${i}`} className="modal-step-line" />}
+            </>
+          ))}
+        </div>
+
+        {error && (
+          <div className="modal-error">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {error}
+          </div>
+        )}
+
+        <div className="modal-body">
+
+          {/* Step 1 — Owner */}
+          {step === 1 && (
+            <div className="modal-grid">
+              <div className="modal-field modal-field-full">
+                <label>Owner Full Name <span>*</span></label>
+                <input type="text" placeholder="e.g. Ahmed Khan" value={form.ownerName} onChange={e => set('ownerName', e.target.value)} />
+              </div>
+              <div className="modal-field">
+                <label>Email Address <span>*</span></label>
+                <input type="email" placeholder="owner@restaurant.com" value={form.email} onChange={e => set('email', e.target.value)} />
+              </div>
+              <div className="modal-field">
+                <label>Phone Number <span>*</span></label>
+                <input type="tel" placeholder="03001234567" value={form.phone} onChange={e => set('phone', e.target.value)} />
+              </div>
+              <div className="modal-field modal-field-full">
+                <label>Password <span>*</span></label>
+                <input type="password" placeholder="Minimum 6 characters" value={form.password} onChange={e => set('password', e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 — Restaurant */}
+          {step === 2 && (
+            <div className="modal-grid">
+              <div className="modal-field modal-field-full">
+                <label>Restaurant Name <span>*</span></label>
+                <input type="text" placeholder="e.g. Kababjees" value={form.restaurantName} onChange={e => set('restaurantName', e.target.value)} />
+              </div>
+              <div className="modal-field modal-field-full">
+                <label>Location <span>*</span></label>
+                <input type="text" placeholder="e.g. DHA Phase 6, Karachi" value={form.location} onChange={e => set('location', e.target.value)} />
+              </div>
+              <div className="modal-field modal-field-full">
+                <label>Cuisine Type <span className="modal-optional">(Optional)</span></label>
+                <input type="text" placeholder="e.g. Pakistani, Chinese, BBQ" value={form.cuisine} onChange={e => set('cuisine', e.target.value)} />
+              </div>
+              <div className="modal-field">
+                <label>Opening Time</label>
+                <select value={form.openingTime} onChange={e => set('openingTime', e.target.value)}>
+                  {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="modal-field">
+                <label>Closing Time</label>
+                <select value={form.closingTime} onChange={e => set('closingTime', e.target.value)}>
+                  {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="modal-field modal-field-full">
+                <label>Description <span className="modal-optional">(Optional)</span></label>
+                <textarea placeholder="Describe the restaurant..." value={form.description} onChange={e => set('description', e.target.value)} rows={3} />
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — Confirm */}
+          {step === 3 && (
+            <div className="confirm-box">
+              <div className="confirm-section">
+                <p className="confirm-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  Owner Details
+                </p>
+                <div className="confirm-rows">
+                  <ConfirmRow label="Name"  value={form.ownerName} />
+                  <ConfirmRow label="Email" value={form.email} />
+                  <ConfirmRow label="Phone" value={form.phone} />
+                </div>
+              </div>
+              <div className="confirm-divider" />
+              <div className="confirm-section">
+                <p className="confirm-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+                  Restaurant Details
+                </p>
+                <div className="confirm-rows">
+                  <ConfirmRow label="Name"     value={form.restaurantName} />
+                  <ConfirmRow label="Location" value={form.location} />
+                  {form.cuisine && <ConfirmRow label="Cuisine"  value={form.cuisine} />}
+                  <ConfirmRow label="Hours"    value={`${form.openingTime} – ${form.closingTime}`} />
+                  {form.description && <ConfirmRow label="Description" value={form.description} />}
+                </div>
+              </div>
+              <div className="confirm-note">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Restaurant will be registered as <strong>Pending</strong> — go to Restaurants page to approve.
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        <div className="modal-footer">
+          {step > 1 && (
+            <button className="modal-btn-back" onClick={handleBack}>← Back</button>
+          )}
+          <div style={{ flex:1 }} />
+          <button className="modal-btn-cancel" onClick={onClose}>Cancel</button>
+          {step < 3 ? (
+            <button className="modal-btn-next" onClick={handleNext}>Continue →</button>
+          ) : (
+            <button className="modal-btn-submit" onClick={handleSubmit} disabled={saving}>
+              {saving && <span className="p-btn-spinner" style={{ borderTopColor:'#fff' }} />}
+              {saving ? 'Registering...' : '✓ Confirm & Register'}
+            </button>
+          )}
+        </div>
+
+      </div>
+    </>
+  )
+}
+
+function ConfirmRow({ label, value }) {
+  return (
+    <div className="confirm-row">
+      <span className="confirm-row-label">{label}</span>
+      <span className="confirm-row-value">{value}</span>
+    </div>
+  )
+}
+
+// ─── Styles ─────────────────────────────────────────────────────────
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap');
 
@@ -241,7 +502,10 @@ const styles = `
   .p-title { font-family:'Syne',sans-serif; font-size:32px; font-weight:800; color:#f1f5f9; margin:0; letter-spacing:-0.02em; }
   .p-chip { font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#334155; background:#111118; border:1px solid #1e2030; padding:6px 14px; border-radius:99px; }
 
-  .r-quick-stats { display:flex; align-items:center; gap:0; background:#111118; border:1px solid #1e2030; border-radius:14px; padding:16px 24px; margin-bottom:24px; width:fit-content; }
+  .add-btn { display:inline-flex; align-items:center; gap:7px; padding:9px 18px; background:#f43f5e; color:#fff; border:none; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s, transform 0.15s; box-shadow:0 4px 14px rgba(244,63,94,0.3); }
+  .add-btn:hover { background:#e11d48; transform:translateY(-1px); }
+
+  .r-quick-stats { display:flex; align-items:center; background:#111118; border:1px solid #1e2030; border-radius:14px; padding:16px 24px; margin-bottom:24px; width:fit-content; }
   .r-qs-item { display:flex; flex-direction:column; gap:4px; padding:0 20px; }
   .r-qs-item:first-child { padding-left:0; }
   .r-qs-val { font-family:'Syne',sans-serif; font-size:24px; font-weight:800; }
@@ -295,10 +559,74 @@ const styles = `
   .r-btn-delete  { background:rgba(244,63,94,0.08); border-color:rgba(244,63,94,0.2); color:#f43f5e; }
   .r-btn-delete:hover:not(:disabled)  { background:rgba(244,63,94,0.15); }
 
-  .p-btn-spinner { width:11px; height:11px; border:2px solid rgba(255,255,255,0.2); border-top-color:currentColor; border-radius:50%; animation:spin 0.7s linear infinite; }
+  .p-btn-spinner { width:11px; height:11px; border:2px solid rgba(255,255,255,0.2); border-top-color:currentColor; border-radius:50%; animation:spin 0.7s linear infinite; display:inline-block; }
 
   .p-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 24px; gap:12px; color:#334155; }
   .p-empty p { font-size:13px; margin:0; }
 
-  @media (max-width:768px) { .p-root { padding:24px 16px; } .p-header { flex-direction:column; align-items:flex-start; gap:8px; } }
+  /* ── Modal ── */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:999; backdrop-filter:blur(4px); }
+  .modal-box { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:1000; background:#0f0f1a; border:1px solid #1e2030; border-radius:24px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto; box-shadow:0 40px 80px rgba(0,0,0,0.7); }
+
+  .modal-header { display:flex; align-items:flex-start; justify-content:space-between; padding:28px 28px 0; }
+  .modal-eyebrow { font-size:11px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:#f43f5e; margin:0 0 6px; }
+  .modal-title { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#f1f5f9; margin:0; letter-spacing:-0.02em; }
+  .modal-close { background:#1e2030; border:1px solid #2a2d3e; border-radius:8px; color:#64748b; cursor:pointer; width:32px; height:32px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
+  .modal-close:hover { background:#2a2d3e; color:#f1f5f9; }
+
+  .modal-steps { display:flex; align-items:center; padding:20px 28px 0; }
+  .modal-step { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:500; color:#334155; white-space:nowrap; transition:color 0.2s; }
+  .modal-step span { width:22px; height:22px; border-radius:50%; background:#1e2030; border:1px solid #2a2d3e; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; transition:all 0.2s; }
+  .modal-step-done { color:#f1f5f9; }
+  .modal-step-done span { background:#10b981; border-color:#10b981; color:#fff; }
+  .modal-step-active { color:#f1f5f9; }
+  .modal-step-active span { background:#f43f5e; border-color:#f43f5e; color:#fff; }
+  .modal-step-line { flex:1; height:1px; background:#1e2030; margin:0 10px; }
+
+  .modal-error { display:flex; align-items:center; gap:8px; background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.2); color:#f43f5e; padding:11px 16px; border-radius:10px; font-size:13px; margin:16px 28px 0; }
+
+  .modal-body { padding:20px 28px; }
+
+  .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .modal-field { display:flex; flex-direction:column; gap:7px; }
+  .modal-field-full { grid-column:1 / -1; }
+  .modal-field label { font-size:12px; font-weight:500; color:#64748b; }
+  .modal-field label span { color:#f43f5e; }
+  .modal-optional { color:#334155 !important; font-weight:400 !important; }
+  .modal-field input, .modal-field select, .modal-field textarea { background:#0d0d18; border:1px solid #1e2030; border-radius:10px; padding:11px 14px; font-size:13px; color:#e2e8f0; font-family:'DM Sans',sans-serif; outline:none; transition:border-color 0.2s; }
+  .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus { border-color:#f43f5e; }
+  .modal-field input::placeholder, .modal-field textarea::placeholder { color:#2d3348; }
+  .modal-field textarea { resize:vertical; min-height:80px; }
+  .modal-field select { cursor:pointer; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:32px; }
+
+  /* Confirm step */
+  .confirm-box { display:flex; flex-direction:column; gap:0; background:#0d0d18; border:1px solid #1e2030; border-radius:16px; overflow:hidden; }
+  .confirm-section { padding:18px 20px; }
+  .confirm-section-title { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#64748b; margin:0 0 14px; }
+  .confirm-rows { display:flex; flex-direction:column; gap:10px; }
+  .confirm-row { display:flex; gap:12px; align-items:baseline; }
+  .confirm-row-label { font-size:12px; color:#475569; width:90px; flex-shrink:0; }
+  .confirm-row-value { font-size:13px; color:#e2e8f0; font-weight:500; }
+  .confirm-divider { height:1px; background:#1e2030; }
+  .confirm-note { display:flex; align-items:flex-start; gap:8px; padding:14px 20px; background:rgba(245,158,11,0.05); border-top:1px solid rgba(245,158,11,0.15); font-size:12px; color:#92400e; line-height:1.5; }
+  .confirm-note strong { color:#f59e0b; }
+
+  .modal-footer { display:flex; align-items:center; gap:10px; padding:0 28px 28px; }
+  .modal-btn-back   { padding:10px 18px; background:none; border:1px solid #1e2030; color:#64748b; border-radius:10px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+  .modal-btn-back:hover { border-color:#2a2d3e; color:#94a3b8; }
+  .modal-btn-cancel { padding:10px 18px; background:none; border:1px solid #1e2030; color:#64748b; border-radius:10px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+  .modal-btn-cancel:hover { border-color:#2a2d3e; color:#94a3b8; }
+  .modal-btn-next   { padding:10px 22px; background:#1e2030; border:none; color:#f1f5f9; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s; }
+  .modal-btn-next:hover { background:#2a2d3e; }
+  .modal-btn-submit { display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:#f43f5e; border:none; color:#fff; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; box-shadow:0 4px 14px rgba(244,63,94,0.3); transition:background 0.15s; }
+  .modal-btn-submit:hover:not(:disabled) { background:#e11d48; }
+  .modal-btn-submit:disabled { background:#4b1b26; cursor:not-allowed; box-shadow:none; }
+
+  @media (max-width:768px) {
+    .p-root { padding:24px 16px; }
+    .p-header { flex-direction:column; align-items:flex-start; gap:12px; }
+    .modal-box { max-width:calc(100vw - 32px); }
+    .modal-grid { grid-template-columns:1fr; }
+    .modal-field-full { grid-column:1; }
+  }
 `
