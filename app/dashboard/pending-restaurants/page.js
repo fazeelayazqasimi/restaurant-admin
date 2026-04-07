@@ -13,7 +13,7 @@ export default function PendingRestaurantsPage() {
 
   const fetchPendingRestaurants = async () => {
     try {
-      const res = await api.get('/admin/pending-restaurants')
+      const res = await api.get('/admin/restaurants?approved=false')
       setPendingRestaurants(res.data.pendingRestaurants)
     } catch (err) {
       console.error('Error:', err)
@@ -25,7 +25,7 @@ export default function PendingRestaurantsPage() {
   const handleApprove = async (id) => {
     setProcessingId(id)
     try {
-      await api.put(`/admin/approve-restaurant/${id}`)
+      await api.put(`/admin/restaurants/${id}/approve`)
       alert('✅ Restaurant approved! Owner can now login.')
       fetchPendingRestaurants()
     } catch (err) {
@@ -39,7 +39,7 @@ export default function PendingRestaurantsPage() {
     if (!confirm('⚠️ Reject this restaurant? Owner account will be permanently deleted.')) return
     setProcessingId(id)
     try {
-      await api.delete(`/admin/reject-restaurant/${id}`)
+      await api.delete(`/admin/restaurants/${id}/reject`)
       alert('❌ Restaurant rejected and owner deleted.')
       fetchPendingRestaurants()
     } catch (err) {
