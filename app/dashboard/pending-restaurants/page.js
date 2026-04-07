@@ -25,9 +25,10 @@ export default function PendingRestaurantsPage() {
   const handleApprove = async (id) => {
     setProcessingId(id)
     try {
-      await api.put(`/admin/approve-restaurant/${id}`)
-      alert('✅ Restaurant approved! Owner can now login.')
-      fetchPendingRestaurants()
+      // ✅ Same endpoint as RestaurantsPage
+      await api.put(`/admin/restaurants/${id}/approve`)
+      // ✅ Card hat jaye list se — re-fetch nahi, direct filter
+      setPendingRestaurants(prev => prev.filter(r => r.id !== id))
     } catch (err) {
       alert('Failed to approve: ' + (err.response?.data?.message || 'Server error'))
     } finally {
@@ -39,9 +40,10 @@ export default function PendingRestaurantsPage() {
     if (!confirm('⚠️ Reject this restaurant? Owner account will be permanently deleted.')) return
     setProcessingId(id)
     try {
-      await api.delete(`/admin/reject-restaurant/${id}`)
-      alert('❌ Restaurant rejected and owner deleted.')
-      fetchPendingRestaurants()
+      // ✅ Same endpoint as RestaurantsPage (PUT, not DELETE)
+      await api.put(`/admin/restaurants/${id}/reject`)
+      // ✅ Card hat jaye list se
+      setPendingRestaurants(prev => prev.filter(r => r.id !== id))
     } catch (err) {
       alert('Failed to reject: ' + (err.response?.data?.message || 'Server error'))
     } finally {
@@ -361,13 +363,8 @@ const styles = {
   },
 }
 
-// Add animation keyframes
 if (typeof document !== 'undefined') {
   const style = document.createElement('style')
-  style.textContent = `
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `
+  style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`
   document.head.appendChild(style)
 }
